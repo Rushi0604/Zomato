@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodExpress | Premium Food Delivery & Management</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="index.css">
+  <style>
+    /* ── User badge: glow on hover to signal dropdown will open ── */
+    #user-badge-btn {
+      transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+    #user-badge-btn:hover {
+      background: rgba(255, 255, 255, 0.14) !important;
+      transform: translateY(-1px) !important;
+      box-shadow: 0 4px 16px rgba(255, 45, 85, 0.22) !important;
+    }
+
+    /* ── CSS-only hover open: overrides .hidden (higher specificity wins) ── */
+    .user-profile-dropdown {
+      padding-bottom: 6px !important;
+    }
+    .user-profile-dropdown:hover #user-dropdown-menu {
+      display: block !important;
+      opacity: 1 !important;
+      transform: translateY(0) !important;
+      pointer-events: all !important;
+    }
+
+    /* ── Dropdown base styles ── */
+    #user-dropdown-menu {
+      background: #1c1c28 !important;
+      border: 1.5px solid rgba(255, 45, 85, 0.55) !important;
+      border-radius: 14px !important;
+      padding: 10px 6px 8px 6px !important;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.9), 0 4px 20px rgba(255,45,85,0.25) !important;
+      z-index: 9999 !important;
+      min-width: 220px !important;
+      position: absolute !important;
+      top: 100% !important;
+      right: 0 !important;
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4,0,0.2,1) !important;
+    }
+
+    /* ── Dropdown items ── */
+    #user-dropdown-menu .dropdown-item {
+      display: flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+      width: 100% !important;
+      padding: 12px 16px !important;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 8px !important;
+      color: #d8d8e8 !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      font-family: 'Inter', sans-serif !important;
+      text-align: left !important;
+      cursor: pointer !important;
+      position: relative !important;
+      overflow: hidden !important;
+      transition: background 0.2s ease, transform 0.22s cubic-bezier(0.4,0,0.2,1), box-shadow 0.22s ease, color 0.2s ease !important;
+    }
+    #user-dropdown-menu .dropdown-item::before {
+      content: '' !important;
+      position: absolute !important;
+      left: 0 !important; top: 0 !important; bottom: 0 !important;
+      width: 3px !important;
+      background: linear-gradient(135deg, #ff5733 0%, #ff1a53 100%) !important;
+      border-radius: 0 2px 2px 0 !important;
+      transform: scaleY(0) !important;
+      transition: transform 0.2s cubic-bezier(0.4,0,0.2,1) !important;
+    }
+    #user-dropdown-menu .dropdown-item:hover {
+      background: rgba(255, 45, 85, 0.16) !important;
+      transform: translateY(-3px) !important;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4) !important;
+      color: #ffffff !important;
+    }
+    #user-dropdown-menu .dropdown-item:hover::before {
+      transform: scaleY(1) !important;
+    }
+    #user-dropdown-menu .dropdown-item i {
+      color: #ff2d55 !important;
+      width: 16px !important;
+      text-align: center !important;
+      flex-shrink: 0 !important;
+      transition: transform 0.22s cubic-bezier(0.4,0,0.2,1) !important;
+    }
+    #user-dropdown-menu .dropdown-item:hover i {
+      transform: scale(1.2) !important;
+    }
+    #user-dropdown-menu .dropdown-item.text-danger,
+    #user-dropdown-menu .dropdown-item.text-danger i {
+      color: #ff1744 !important;
+    }
+    #user-dropdown-menu .dropdown-item.text-danger:hover {
+      background: rgba(255, 23, 68, 0.18) !important;
+      color: #ff6b6b !important;
+    }
+    #user-dropdown-menu .dropdown-divider {
+      height: 1px !important;
+      background: rgba(255,255,255,0.1) !important;
+      margin: 6px 4px !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="hidden">
+    <div class="spinner-container">
+      <div class="premium-spinner"></div>
+      <p>Processing Transaction...</p>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast-container"></div>
+
+  <!-- Main App Wrapper -->
+  <div id="app-wrapper">
+
+    <!-- Top Navigation Header -->
+    <header id="app-header" class="hidden">
+      <div class="header-container">
+        <div class="brand">
+          <i class="fa-solid fa-bolt logo-icon"></i>
+          <h1>FoodExpress</h1>
+        </div>
+        <div class="header-controls">
+
+          
+          <div class="user-profile-dropdown" style="position: relative;">
+            <div class="user-badge" id="user-badge-btn" role="button" tabindex="0" style="cursor: pointer; transition: all 0.3s ease;">
+              <i class="fa-solid fa-circle-user"></i>
+              <span id="header-user-name">Welcome, Guest</span>
+              <span id="header-user-role" class="role-pill">User</span>
+              <i class="fa-solid fa-chevron-down" style="font-size: 10px; margin-left: 5px; color: var(--muted);"></i>
+            </div>
+            
+            <div class="dropdown-menu hidden" id="user-dropdown-menu">
+              <button class="dropdown-item" id="nav-account-btn">
+                <i class="fa-solid fa-user-pen"></i> Account Details
+              </button>
+              <button class="dropdown-item" id="nav-orders-btn">
+                <i class="fa-solid fa-clock-rotate-left"></i> Order History
+              </button>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item text-danger" id="logout-btn">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Sections (SPA Router) -->
+    <main id="main-content">
+
+      <!-- SECTION 0: DATABASE SETUP VIEW -->
+      <section id="setup-view" class="view">
+        <div class="setup-card glass" style="max-width: 600px; margin: 2rem auto; padding: 2rem;">
+          <div class="setup-header" style="text-align: center; margin-bottom: 1.5rem;">
+            <i class="fa-solid fa-cloud-bolt setup-icon" style="font-size: 3rem; color: var(--accent); margin-bottom: 1rem; display: inline-block;"></i>
+            <h2>Supabase Cloud Database Sync</h2>
+            <p style="color: var(--muted); margin-top: 0.5rem;">Welcome to FoodExpress! We have migrated from local MySQL to Supabase PostgreSQL database hosting.</p>
+          </div>
+          <div class="setup-details" style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 1.25rem; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 1.5rem;">
+            <div class="db-status-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+              <span>Supabase Project Connectivity</span>
+              <span id="db-status-indicator" class="status-indicator warning">NOT CONNECTED</span>
+            </div>
+            
+            <div class="setup-instructions" style="margin-top: 1rem;">
+              <h4 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text);"><i class="fa-solid fa-circle-info" style="color: var(--info);"></i> How to initialize your Supabase DB:</h4>
+              <ol style="margin-left: 1.25rem; padding-left: 0; line-height: 1.6; color: var(--muted);">
+                <li style="margin-bottom: 0.5rem;">Click the button below to copy the fully optimized PostgreSQL SQL script to your clipboard.</li>
+                <li style="margin-bottom: 0.5rem;">Open your <a href="https://supabase.com/dashboard/project/iquhouefedyzyvlwiwha" target="_blank" style="color: var(--accent); text-decoration: underline;">Supabase SQL Editor</a> in a browser.</li>
+                <li style="margin-bottom: 0.5rem;">Click <strong>New Query</strong>, paste the script, and click <strong>Run</strong> at the bottom right.</li>
+                <li>Return here and click <strong>Verify & Connect Database</strong> to start using the app!</li>
+              </ol>
+            </div>
+          </div>
+          
+          <div class="setup-actions" style="display: grid; gap: 1rem;">
+            <button id="copy-sql-btn" class="btn btn-secondary btn-block" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%;">
+              <i class="fa-solid fa-copy"></i> Copy PostgreSQL SQL Schema
+            </button>
+            <button id="run-setup-btn" class="btn btn-primary btn-block" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%;">
+              <i class="fa-solid fa-rotate"></i> Verify & Connect Database
+            </button>
+          </div>
+          
+          <div class="setup-bypass" style="text-align: center; margin-top: 1.25rem;">
+            <a href="#" id="bypass-setup-link" style="font-size: 0.9rem; color: var(--muted);">Skip to Login (Use Existing Database Connection)</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 1: AUTHENTICATION VIEW -->
+      <section id="auth-view" class="view hidden">
+        <div class="auth-container">
+          <div class="auth-card glass">
+            <div class="auth-tabs">
+              <button class="auth-tab active" data-tab="login-form">Login</button>
+              <button class="auth-tab" data-tab="register-form">Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form">
+              <h3>Welcome Back</h3>
+              <p>Login to order delicious food or manage your portal</p>
+              
+              <div class="form-group">
+                <label>Login As</label>
+                <div class="role-selector">
+                  <label class="role-option active">
+                    <input type="radio" name="login-role" value="1" checked>
+                    <i class="fa-solid fa-pizza-slice"></i>
+                    <span>Customer</span>
+                  </label>
+                  <label class="role-option">
+                    <input type="radio" name="login-role" value="2">
+                    <i class="fa-solid fa-store"></i>
+                    <span>Restaurant</span>
+                  </label>
+                  <label class="role-option">
+                    <input type="radio" name="login-role" value="3">
+                    <i class="fa-solid fa-motorcycle"></i>
+                    <span>Delivery</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="login-id">Email or Phone Number</label>
+                <div class="input-wrapper">
+                  <i class="fa-solid fa-envelope"></i>
+                  <input type="text" id="login-id" placeholder="alice@gmail.com or 10-digit phone" required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="login-pass">Password</label>
+                <div class="input-wrapper">
+                  <i class="fa-solid fa-lock"></i>
+                  <input type="password" id="login-pass" placeholder="••••••••" required>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Login
+              </button>
+
+              <div class="admin-login-link">
+                <a href="#" id="admin-login-toggle">Access Administrator Portal</a>
+              </div>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form hidden">
+              <h3>Create Account</h3>
+              <p>Register to unlock the complete food-ordering platform</p>
+              
+              <div class="form-group">
+                <label>Register As</label>
+                <div class="role-selector">
+                  <label class="role-option active" data-role="1">
+                    <input type="radio" name="reg-role" value="1" checked>
+                    <i class="fa-solid fa-pizza-slice"></i>
+                    <span>Customer</span>
+                  </label>
+                  <label class="role-option" data-role="2">
+                    <input type="radio" name="reg-role" value="2">
+                    <i class="fa-solid fa-store"></i>
+                    <span>Restaurant</span>
+                  </label>
+                  <label class="role-option" data-role="3">
+                    <input type="radio" name="reg-role" value="3">
+                    <i class="fa-solid fa-motorcycle"></i>
+                    <span>Delivery</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="reg-name">Full Name / Hotel Name</label>
+                  <div class="input-wrapper">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" id="reg-name" placeholder="e.g. Alice / Pizza Palace" required>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="reg-email">Email Address</label>
+                  <div class="input-wrapper">
+                    <i class="fa-solid fa-envelope"></i>
+                    <input type="email" id="reg-email" placeholder="email@gmail.com / @yahoo.com" required>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="reg-phone">10-Digit Mobile Number</label>
+                  <div class="input-wrapper">
+                    <i class="fa-solid fa-phone"></i>
+                    <input type="tel" id="reg-phone" placeholder="e.g. 9999999999" required>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="reg-pass">Password</label>
+                  <div class="input-wrapper">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" id="reg-pass" placeholder="Min 6, 1 Upper, 1 Special" required>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hotel Specific field -->
+              <div id="hotel-spec-group" class="form-group hidden">
+                <label for="reg-type">Cuisine / Restaurant Type</label>
+                <div class="input-wrapper">
+                  <i class="fa-solid fa-utensils"></i>
+                  <input type="text" id="reg-type" placeholder="e.g. Italian, Fast Food, Indian">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="reg-address">Address Location</label>
+                <div class="input-wrapper">
+                  <i class="fa-solid fa-map-location-dot"></i>
+                  <input type="text" id="reg-address" placeholder="Enter complete physical address" required>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-user-plus"></i> Complete Registration
+              </button>
+            </form>
+
+            <!-- Admin Passkey Form -->
+            <form id="admin-form" class="auth-form hidden">
+              <h3>Admin Gateway</h3>
+              <p>Enter the security passkey to access board analytics</p>
+
+              <div class="form-group">
+                <label for="admin-pass">Security Passkey</label>
+                <div class="input-wrapper">
+                  <i class="fa-solid fa-shield-halved"></i>
+                  <input type="password" id="admin-pass" placeholder="••••••••" required>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-unlock-keyhole"></i> Unlock Dashboard
+              </button>
+              <div class="admin-login-link">
+                <a href="#" id="admin-login-back">Back to Portal Login</a>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: CUSTOMER HOME VIEW -->
+      <section id="customer-view" class="view hidden">
+        <div class="customer-container">
+          
+          <!-- Browse Column -->
+          <div class="browse-panel">
+            <div class="dashboard-banner">
+              <div class="banner-content">
+                <h2>Craving something delicious?</h2>
+                <p>Discover the finest cuisines delivered straight to your door step.</p>
+                
+                <!-- Search & Filters -->
+                <div class="search-bar-row">
+                  <div class="search-input-wrapper">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="food-search" placeholder="Search dish, cuisine, or restaurant...">
+                  </div>
+                </div>
+              </div>
+              <div class="banner-graphic">
+                <div class="glowing-circle"></div>
+                <img src="banner_food.png" alt="Delicious Food" class="floating-food">
+                <div class="promo-badge">
+                  <span>50% OFF</span>
+                  <p>CODE: FOOD50</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cuisine Quick Filters -->
+            <div class="cuisine-filters">
+              <button class="filter-chip active" data-cuisine="">All</button>
+              <button class="filter-chip" data-cuisine="Italian">Italian</button>
+              <button class="filter-chip" data-cuisine="Fast Food">Fast Food</button>
+              <button class="filter-chip" data-cuisine="Indian">Indian</button>
+              <button class="filter-chip" data-cuisine="Asian">Asian</button>
+              <button class="filter-chip" data-cuisine="Chinese">Chinese</button>
+              <button class="filter-chip" data-cuisine="Healthy">Healthy</button>
+              <button class="filter-chip" data-cuisine="Bakery">Bakery</button>
+              <button class="filter-chip" data-cuisine="Mexican">Mexican</button>
+              <button class="filter-chip" data-cuisine="Cafe">Cafe</button>
+            </div>
+
+            <!-- Restaurant List / Grid Section -->
+            <div class="section-header">
+              <h3 id="browse-title">Popular Restaurants</h3>
+              <button id="back-to-restaurants-btn" class="btn btn-secondary hidden">
+                <i class="fa-solid fa-chevron-left"></i> View All Restaurants
+              </button>
+            </div>
+
+            <!-- Grid Container -->
+            <div id="restaurants-grid" class="grid-layout">
+              <!-- Dynamically populated -->
+            </div>
+
+            <!-- Menu Grid View (Shown when restaurant clicked) -->
+            <div id="menu-view" class="hidden">
+              <div class="selected-restaurant-card glass">
+                <div class="res-details-header">
+                  <div class="res-meta">
+                    <h2 id="selected-res-name">Pizza Palace</h2>
+                    <span id="selected-res-type" class="cuisine-tag">Italian</span>
+                  </div>
+                  <div class="res-contact">
+                    <p><i class="fa-solid fa-location-dot"></i> <span id="selected-res-address">123 St</span></p>
+                    <p><i class="fa-solid fa-phone"></i> <span id="selected-res-phone">9999</span></p>
+                  </div>
+                </div>
+              </div>
+              
+              <div id="menu-items-grid" class="grid-layout mt-4">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SECTION 3: LIVE TRACKING VIEW -->
+      <section id="tracking-view" class="view hidden">
+        <div class="tracking-container">
+          <div class="tracking-card glass">
+            
+            <div class="tracking-header">
+              <div class="tracking-title-block">
+                <span class="status-pill active-pulse">Live</span>
+                <h2>Track Your Order</h2>
+                <p>Order ID: #<span id="track-order-id">00</span> | Restaurant: <span id="track-res-name">...</span></p>
+              </div>
+              <div class="eta-block">
+                <p>Estimated Delivery</p>
+                <h3><span id="track-eta">00</span> Mins</h3>
+              </div>
+            </div>
+
+            <!-- Live Status Stepper -->
+            <div class="stepper">
+              <div class="step" id="step-placed">
+                <div class="step-icon"><i class="fa-solid fa-receipt"></i></div>
+                <div class="step-label">Order Placed</div>
+              </div>
+              <div class="step" id="step-preparing">
+                <div class="step-icon"><i class="fa-solid fa-kitchen-set"></i></div>
+                <div class="step-label">Preparing</div>
+              </div>
+              <div class="step" id="step-out">
+                <div class="step-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
+                <div class="step-label">Out for Delivery</div>
+              </div>
+              <div class="step" id="step-delivered">
+                <div class="step-icon"><i class="fa-solid fa-house-chimney-user"></i></div>
+                <div class="step-label">Delivered</div>
+              </div>
+            </div>
+
+            <!-- Order Details -->
+            <div class="tracking-details">
+              <div class="partner-card glass">
+                <h4>Your Delivery Hero</h4>
+                <div class="partner-meta">
+                  <i class="fa-solid fa-motorcycle dp-hero-icon"></i>
+                  <div>
+                    <h5 id="track-dp-name">Ramesh Kumar</h5>
+                    <p><i class="fa-solid fa-phone"></i> Contact: <span id="track-dp-phone">9999999999</span></p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="order-summary-box">
+                <h4>Order Summary</h4>
+                <div class="total-row">
+                  <span>Payment Method</span>
+                  <span id="track-pay-method" class="badge">Online</span>
+                </div>
+                <div class="total-row font-weight-bold">
+                  <span>Amount Paid</span>
+                  <span id="track-amount" class="text-accent">00.00 Rs.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tracking-actions">
+              <button id="track-back-home" class="btn btn-secondary">
+                <i class="fa-solid fa-house"></i> Return to Home
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: RESTAURANT MANAGER VIEW -->
+      <section id="restaurant-view" class="view hidden">
+        <div class="hotel-container">
+          
+          <!-- Left side: Orders received -->
+          <div class="hotel-orders-panel glass">
+            <div class="panel-header">
+              <h3><i class="fa-solid fa-bell"></i> Incoming Customer Orders</h3>
+            </div>
+            <div class="orders-list" id="hotel-orders-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Right side: Menu Management -->
+          <div class="hotel-menu-panel glass">
+            <div class="panel-header">
+              <h3><i class="fa-solid fa-list-check"></i> Menu Management</h3>
+              <button id="add-menu-item-btn" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Add New Dish
+              </button>
+            </div>
+            
+            <div class="menu-management-grid" id="hotel-menu-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SECTION 5: DELIVERY PARTNER VIEW -->
+      <section id="delivery-view" class="view hidden">
+        <div class="delivery-container">
+          
+          <!-- Active Task Card -->
+          <div class="delivery-active-task glass">
+            <h3><i class="fa-solid fa-route active-pulse-indicator"></i> Active Delivery Assignment</h3>
+            <div id="dp-active-task-container">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Delivery History -->
+          <div class="delivery-history glass">
+            <h3><i class="fa-solid fa-history"></i> Completed Deliveries History</h3>
+            <div class="history-table-wrapper">
+              <table class="history-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Restaurant</th>
+                    <th>Customer Name</th>
+                    <th>Payout Amount</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody id="dp-history-table-body">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SECTION 6: ADMIN VIEW -->
+      <section id="admin-view" class="view hidden">
+        <div class="admin-container">
+          
+          <!-- Summary metrics -->
+          <div class="metrics-row">
+            <div class="metric-card glass">
+              <i class="fa-solid fa-users icon"></i>
+              <div>
+                <p>Total Customers</p>
+                <h3 id="admin-metric-users">0</h3>
+              </div>
+            </div>
+            <div class="metric-card glass">
+              <i class="fa-solid fa-store icon"></i>
+              <div>
+                <p>Total Hotels</p>
+                <h3 id="admin-metric-hotels">0</h3>
+              </div>
+            </div>
+            <div class="metric-card glass">
+              <i class="fa-solid fa-motorcycle icon"></i>
+              <div>
+                <p>Delivery Partners</p>
+                <h3 id="admin-metric-dps">0</h3>
+              </div>
+            </div>
+            <div class="metric-card glass">
+              <i class="fa-solid fa-basket-shopping icon"></i>
+              <div>
+                <p>Total Orders</p>
+                <h3 id="admin-metric-orders">0</h3>
+              </div>
+            </div>
+            <div class="metric-card glass premium-accent">
+              <i class="fa-solid fa-indian-rupee-sign icon"></i>
+              <div>
+                <p>Total Platform Revenue</p>
+                <h3 id="admin-metric-revenue">0.00 Rs.</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- Leaderboards and Performance -->
+          <div class="admin-analytics-grid">
+            
+            <!-- High Value Active Users -->
+            <div class="analytics-card glass">
+              <h3><i class="fa-solid fa-crown leaderboard-crown"></i> Platform Active Customers</h3>
+              <div class="analytics-list" id="admin-active-users-list">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Monthly History (Restaurants order volume) -->
+            <div class="analytics-card glass">
+              <h3><i class="fa-solid fa-chart-line text-accent"></i> Restaurant Order Volume (Last 30 Days)</h3>
+              <div class="analytics-list" id="admin-monthly-history-list">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Manage Partnerships (Delete Restaurants & Partners) -->
+          <div class="admin-management-section glass">
+            <h3><i class="fa-solid fa-shield-halved"></i> Platform Vendor & Partner Management</h3>
+            <div class="management-grid">
+              
+              <div class="mgmt-card">
+                <h4>Registered Restaurants</h4>
+                <div class="mgmt-list" id="admin-mgmt-hotels">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
+
+              <div class="mgmt-card">
+                <h4>Registered Delivery Partners</h4>
+                <div class="mgmt-list" id="admin-mgmt-dps">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- Backdrop for Cart Drawer (root-level to escape stacking contexts) -->
+  <div id="cart-backdrop" class="cart-backdrop hidden"></div>
+
+  <!-- Checkout Sidebar / Cart Drawer (root-level) -->
+  <aside class="cart-sidebar glass">
+    <div class="cart-header">
+      <h3>Your Order Basket</h3>
+      <button id="close-cart-btn" class="close-cart-btn" title="Close Basket">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="cart-items-container" id="cart-items">
+      <!-- Empty Cart State -->
+      <div class="empty-cart">
+        <i class="fa-solid fa-cart-shopping"></i>
+        <p>Your basket is empty.</p>
+        <p class="sub">Select items from a restaurant menu to add them here.</p>
+      </div>
+    </div>
+
+    <div class="cart-totals-summary">
+      <div class="total-row">
+        <span>Sub-Total</span>
+        <span id="cart-subtotal">0.00 Rs.</span>
+      </div>
+      <div class="total-row" id="cart-discount-row" style="display: none; color: var(--accent);">
+        <span id="cart-discount-label">Discount</span>
+        <span id="cart-discount">0.00 Rs.</span>
+      </div>
+      <div class="total-row">
+        <span>GST (5%)</span>
+        <span id="cart-gst">0.00 Rs.</span>
+      </div>
+      <div class="total-row">
+        <span>Delivery Charge</span>
+        <span id="cart-delivery">0.00 Rs.</span>
+      </div>
+      
+      <!-- Coupon Section -->
+      <div class="coupon-section" style="margin: 15px 0; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.15);">
+        <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 6px;"><i class="fa-solid fa-tags"></i> Have a Promo Code / Coupon?</label>
+        <div class="coupon-input-row" style="display: flex; gap: 8px;">
+          <input type="text" id="coupon-code" placeholder="e.g. FOOD50" style="flex: 1; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 12px; text-transform: uppercase;">
+          <button id="apply-coupon-btn" class="btn btn-secondary btn-sm" style="padding: 6px 12px; font-size: 11px;">Apply</button>
+        </div>
+        <div id="coupon-message" class="coupon-message" style="margin-top: 6px; font-size: 10px; display: none; font-weight: 500;"></div>
+      </div>
+
+      <div class="free-delivery-badge" id="free-delivery-alert">
+        <i class="fa-solid fa-circle-info"></i> Add items worth 400 Rs. or more for FREE delivery!
+      </div>
+      <hr>
+      <div class="total-row grand">
+        <span>Grand Total</span>
+        <span id="cart-grandtotal">0.00 Rs.</span>
+      </div>
+      <button id="checkout-btn" class="btn btn-primary btn-block" disabled>
+        <i class="fa-solid fa-credit-card"></i> Proceed to Checkout
+      </button>
+    </div>
+  </aside>
+
+  <!-- Floating Cart Action Button (root-level FAB) -->
+  <button id="floating-cart-btn" class="floating-cart-btn hidden" title="View Basket">
+    <i class="fa-solid fa-cart-shopping"></i>
+    <span id="floating-cart-badge" class="cart-badge" style="display: none;">0</span>
+  </button>
+
+  <!-- PAYMENT MODAL -->
+  <div id="payment-modal" class="modal hidden">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3>Secure Checkout & Payment</h3>
+        <button class="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="payable-label">Amount Payable: <strong id="modal-payable-amount">0.00 Rs.</strong></p>
+        
+        <div class="payment-tabs">
+          <button class="payment-tab active" data-pay="1">
+            <i class="fa-solid fa-hand-holding-dollar"></i> Cash
+          </button>
+          <button class="payment-tab" data-pay="2">
+            <i class="fa-solid fa-credit-card"></i> Card
+          </button>
+          <button class="payment-tab" data-pay="3">
+            <i class="fa-solid fa-mobile-screen-button"></i> UPI
+          </button>
+        </div>
+
+        <!-- Cash Form -->
+        <div id="pay-form-1" class="pay-form">
+          <p class="pay-info"><i class="fa-solid fa-circle-info"></i> You will pay cash to our delivery partner upon delivery of your meal.</p>
+        </div>
+
+        <!-- Card Form -->
+        <div id="pay-form-2" class="pay-form hidden">
+          <div class="form-group">
+            <label for="pay-card-num">16-Digit Credit Card Number</label>
+            <input type="text" id="pay-card-num" placeholder="1234 5678 1234 5678" maxlength="16">
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="pay-card-expiry">Expiry Date</label>
+              <div class="expiry-grid">
+                <input type="number" id="pay-card-month" placeholder="MM" min="1" max="12">
+                <input type="number" id="pay-card-year" placeholder="YYYY" min="2025" max="2050">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="pay-card-cvv">3-Digit CVV</label>
+              <input type="password" id="pay-card-cvv" placeholder="•••" maxlength="3">
+            </div>
+          </div>
+          <p class="demo-cards-hint">
+            <strong>Hint:</strong> Seeded test account card is <code>1234567812345678</code>, CVV: <code>123</code> (Alice, Bal: 15k Rs.)
+          </p>
+        </div>
+
+        <!-- UPI Form -->
+        <div id="pay-form-3" class="pay-form hidden">
+          <div class="form-group">
+            <label for="pay-upi-id">UPI Address ID</label>
+            <input type="text" id="pay-upi-id" placeholder="username@upi / username@paytm">
+          </div>
+          <p class="demo-cards-hint">
+            <strong>Hint:</strong> Seeded test UPI is <code>alice@paytm</code> or <code>bob@paytm</code>
+          </p>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button id="pay-submit-btn" class="btn btn-primary btn-block">Confirm Order & Pay</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCOUNT DETAILS MODAL -->
+  <div id="account-modal" class="modal hidden">
+    <div class="modal-content glass" style="max-width: 450px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-user-pen"></i> Account Details</h3>
+        <button class="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="account-details-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="acc-name">Full Name</label>
+            <input type="text" id="acc-name" required>
+          </div>
+          <div class="form-group">
+            <label for="acc-email">Email Address</label>
+            <input type="email" id="acc-email" disabled style="opacity: 0.7; cursor: not-allowed;">
+          </div>
+          <div class="form-group">
+            <label for="acc-phone">Phone Number</label>
+            <input type="tel" id="acc-phone" required>
+          </div>
+          <div class="form-group">
+            <label for="acc-address">Delivery Address</label>
+            <textarea id="acc-address" rows="3" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ORDER HISTORY MODAL -->
+  <div id="orders-modal" class="modal hidden">
+    <div class="modal-content glass" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> Order History</h3>
+        <button class="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="max-height: 60vh; overflow-y: auto; padding: 15px;">
+        <div id="orders-list-container" style="display: flex; flex-direction: column; gap: 15px;">
+          <!-- Orders will be injected here via JS -->
+          <div class="text-center" style="color: var(--text-muted); padding: 20px;">Loading orders...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD / UPDATE MENU ITEM MODAL -->
+  <div id="menu-modal" class="modal hidden">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3 id="menu-modal-title">Add Menu Item</h3>
+        <button class="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="menu-item-form">
+        <input type="hidden" id="menu-form-item-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="menu-item-name">Dish Name</label>
+            <input type="text" id="menu-item-name" placeholder="e.g. Margherita Pizza" required>
+          </div>
+          <div class="form-group">
+            <label for="menu-item-price">Price (Rs.)</label>
+            <input type="number" id="menu-item-price" placeholder="e.g. 250" step="0.01" min="1" required>
+          </div>
+          <div class="form-group">
+            <label for="menu-item-image">Dish Image URL (Optional)</label>
+            <input type="text" id="menu-item-image" placeholder="e.g. https://images.unsplash.com/...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary btn-block">Save Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom Scripts -->
+  <script src="index.js?v=1.0.1"></script>
+</body>
+</html>
