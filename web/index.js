@@ -1517,7 +1517,7 @@ function renderRestaurantMenuMgmt(items) {
         <p>${item.price.toFixed(2)} Rs.</p>
       </div>
       <div class="mgmt-menu-actions">
-        <button class="btn btn-secondary btn-sm edit-menu-btn"><i class="fa-solid fa-pen"></i> Update Price</button>
+        <button class="btn btn-secondary btn-sm edit-menu-btn"><i class="fa-solid fa-pen"></i> Edit Details</button>
       </div>
     `;
 
@@ -1565,21 +1565,49 @@ function openMenuModal(item = null) {
   const modal = document.getElementById("menu-modal");
   const form = document.getElementById("menu-item-form");
   const title = document.getElementById("menu-modal-title");
+  const deleteBtn = document.getElementById("delete-menu-item-btn");
 
   form.reset();
 
   if (item) {
-    title.textContent = "Update Menu Price";
+    title.textContent = "Edit Menu Item";
     document.getElementById("menu-form-item-id").value = item.id;
     document.getElementById("menu-item-name").value = item.name;
     document.getElementById("menu-item-name").disabled = true;
     document.getElementById("menu-item-price").value = item.price;
     document.getElementById("menu-item-image").value = item.image || "";
+    // Show delete button for existing items
+    deleteBtn.classList.remove("hidden");
+    // Replace to avoid stacking listeners
+    const newBtn = deleteBtn.cloneNode(true);
+    deleteBtn.parentNode.replaceChild(newBtn, deleteBtn);
+    newBtn.addEventListener("click", async () => {
+      if (!confirm(`Delete "${item.name}" from your menu? This cannot be undone.`)) return;
+      showLoader(true, "Deleting item from Supabase...");
+      try {
+        const res = await supabaseFetch(`menu_item?item_id=eq.${item.id}&r_id=eq.${state.currentUser.id}`, {
+          method: "DELETE"
+        });
+        showLoader(false);
+        if (res.ok || res.status === 204) {
+          showToast(`"${item.name}" deleted successfully.`, "success");
+          modal.classList.add("hidden");
+          loadRestaurantDashboard();
+        } else {
+          showToast("Failed to delete item.", "error");
+        }
+      } catch (err) {
+        showLoader(false);
+        showToast("Error deleting item: " + (err.message || err), "error");
+      }
+    });
   } else {
     title.textContent = "Add Menu Dish";
     document.getElementById("menu-form-item-id").value = "";
     document.getElementById("menu-item-name").disabled = false;
     document.getElementById("menu-item-image").value = "";
+    // Hide delete button for new items
+    deleteBtn.classList.add("hidden");
   }
 
   modal.classList.remove("hidden");
@@ -2047,17 +2075,37 @@ async function openAccountModal() {
   modal.querySelector(".close-modal-btn").onclick = () => modal.classList.add("hidden");
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
 
-  // Only customers (role=1) have editable profile in user_details
   const user = state.currentUser;
-  if (!user || user.role !== 1) {
-    showToast("Account details are only available for Customer accounts.", "info");
-    modal.classList.add("hidden");
+  if (!user) { modal.classList.add("hidden"); return; }
+
+  const addressGroup = document.getElementById("acc-address-group");
+  if (addressGroup) {
+    addressGroup.style.display = user.role === 3 ? "none" : "block";
+  }
+
+  // Determine which table + fields to use per role
+  let endpoint = "", nameField = "", emailField = "", phoneField = "", addressField = "", idField = "";
+  if (user.role === 1) {
+    endpoint    = `user_details?u_id=eq.${user.id}&select=u_id,u_name,u_email,u_phonenumber,u_address`;
+    nameField   = "u_name"; emailField = "u_email"; phoneField = "u_phonenumber"; addressField = "u_address"; idField = "u_id";
+  } else if (user.role === 2) {
+    endpoint    = `restaurant?restaurantid=eq.${user.id}&select=restaurantid,restaurantname,r_email,restaurantphone,r_address`;
+    nameField   = "restaurantname"; emailField = "r_email"; phoneField = "restaurantphone"; addressField = "r_address"; idField = "restaurantid";
+  } else if (user.role === 3) {
+    endpoint    = `deliverypartner_details?dp_id=eq.${user.id}&select=dp_id,dp_name,dp_email,dp_phonenumber`;
+    nameField   = "dp_name"; emailField = "dp_email"; phoneField = "dp_phonenumber"; addressField = ""; idField = "dp_id";
+  } else {
+    // Admin — no editable profile
+    document.getElementById("acc-name").value  = "Platform Admin";
+    document.getElementById("acc-email").value = "admin@foodexpress.com";
+    document.getElementById("acc-phone").value = "N/A";
+    document.getElementById("acc-address").value = "N/A";
     return;
   }
 
   try {
     showLoader(true);
-    const res = await supabaseFetch(`user_details?u_id=eq.${user.id}&select=u_id,u_name,u_email,u_phonenumber,u_address`);
+    const res = await supabaseFetch(endpoint);
     showLoader(false);
 
     if (!res.ok) { showToast("Failed to load account details.", "error"); modal.classList.add("hidden"); return; }
@@ -2065,10 +2113,10 @@ async function openAccountModal() {
     if (!rows || rows.length === 0) { showToast("User record not found.", "error"); modal.classList.add("hidden"); return; }
 
     const u = rows[0];
-    document.getElementById("acc-name").value    = u.u_name || "";
-    document.getElementById("acc-email").value   = u.u_email || "";
-    document.getElementById("acc-phone").value   = u.u_phonenumber || "";
-    document.getElementById("acc-address").value = u.u_address || "";
+    document.getElementById("acc-name").value    = u[nameField]    || "";
+    document.getElementById("acc-email").value   = u[emailField]   || "";
+    document.getElementById("acc-phone").value   = u[phoneField]   || "";
+    document.getElementById("acc-address").value = addressField ? (u[addressField] || "") : "N/A";
 
   } catch (err) {
     showLoader(false);
@@ -2079,7 +2127,6 @@ async function openAccountModal() {
 
   // Handle form save
   const form = document.getElementById("account-details-form");
-  // Remove old listener to avoid duplicates
   const newForm = form.cloneNode(true);
   form.parentNode.replaceChild(newForm, form);
 
@@ -2089,8 +2136,8 @@ async function openAccountModal() {
     const newPhone   = document.getElementById("acc-phone").value.trim();
     const newAddress = document.getElementById("acc-address").value.trim();
 
-    if (!newName || !newPhone || !newAddress) {
-      showToast("All fields are required.", "error");
+    if (!newName || !newPhone) {
+      showToast("Name and phone are required.", "error");
       return;
     }
     if (!newPhone.match(/^\d{10}$/)) {
@@ -2098,17 +2145,30 @@ async function openAccountModal() {
       return;
     }
 
+    // Build update payload per role
+    let patchEndpoint = "";
+    let patchBody = {};
+    if (user.role === 1) {
+      patchEndpoint = `user_details?u_id=eq.${user.id}`;
+      patchBody = { u_name: newName, u_phonenumber: newPhone, u_address: newAddress };
+    } else if (user.role === 2) {
+      patchEndpoint = `restaurant?restaurantid=eq.${user.id}`;
+      patchBody = { restaurantname: newName, restaurantphone: newPhone, r_address: newAddress };
+    } else if (user.role === 3) {
+      patchEndpoint = `deliverypartner_details?dp_id=eq.${user.id}`;
+      patchBody = { dp_name: newName, dp_phonenumber: newPhone };
+    }
+
     try {
       showLoader(true);
-      const res = await supabaseFetch(`user_details?u_id=eq.${user.id}`, {
+      const res = await supabaseFetch(patchEndpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "Prefer": "return=representation" },
-        body: JSON.stringify({ u_name: newName, u_phonenumber: newPhone, u_address: newAddress })
+        body: JSON.stringify(patchBody)
       });
       showLoader(false);
 
       if (res.ok) {
-        // Update session state with new name
         state.currentUser.name = newName;
         localStorage.setItem("food_express_user", JSON.stringify(state.currentUser));
         document.getElementById("header-user-name").textContent = `Welcome, ${newName}`;
@@ -2123,7 +2183,130 @@ async function openAccountModal() {
       showToast("Save error: " + (err.message || err), "error");
     }
   });
+
+  // ── Change Password Section ────────────────────────────────
+  // Reset panel state every time the modal opens
+  const cpPanel   = document.getElementById("change-password-panel");
+  const cpStep1   = document.getElementById("cp-step-1");
+  const cpStep2   = document.getElementById("cp-step-2");
+  const cpChevron = document.getElementById("change-password-chevron");
+  const cpMsg     = document.getElementById("cp-verify-msg");
+
+  cpPanel.classList.add("hidden");
+  cpStep2.classList.add("hidden");
+  cpStep1.classList.remove("hidden");
+  cpChevron.style.transform = "rotate(0deg)";
+  document.getElementById("acc-old-pass").value    = "";
+  document.getElementById("acc-new-pass").value     = "";
+  document.getElementById("acc-confirm-pass").value = "";
+  if (cpMsg) { cpMsg.style.display = "none"; cpMsg.textContent = ""; }
+
+  // Toggle collapse
+  const toggle = document.getElementById("change-password-toggle");
+  const newToggle = toggle.cloneNode(true);
+  toggle.parentNode.replaceChild(newToggle, toggle);
+  newToggle.addEventListener("click", () => {
+    const isHidden = cpPanel.classList.contains("hidden");
+    cpPanel.classList.toggle("hidden", !isHidden);
+    cpChevron.style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
+  });
+
+  // Verify old password button
+  const verifyBtn = document.getElementById("verify-old-pass-btn");
+  const newVerifyBtn = verifyBtn.cloneNode(true);
+  verifyBtn.parentNode.replaceChild(newVerifyBtn, verifyBtn);
+  newVerifyBtn.addEventListener("click", async () => {
+    const oldPass = document.getElementById("acc-old-pass").value.trim();
+    const msgEl   = document.getElementById("cp-verify-msg");
+    if (!oldPass) {
+      msgEl.style.display = "block";
+      msgEl.style.color   = "var(--danger)";
+      msgEl.textContent   = "Please enter your current password.";
+      return;
+    }
+
+    // Fetch password from correct table
+    let passEndpoint = "", passField = "";
+    if (user.role === 1)      { passEndpoint = `user_details?u_id=eq.${user.id}&select=u_password`;            passField = "u_password"; }
+    else if (user.role === 2) { passEndpoint = `restaurant?restaurantid=eq.${user.id}&select=r_pass`;          passField = "r_pass"; }
+    else if (user.role === 3) { passEndpoint = `deliverypartner_details?dp_id=eq.${user.id}&select=dp_password`; passField = "dp_password"; }
+
+    newVerifyBtn.disabled = true;
+    newVerifyBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Verifying...`;
+    try {
+      const res = await supabaseFetch(passEndpoint);
+      const rows = res.ok ? await res.json() : [];
+      newVerifyBtn.disabled = false;
+      newVerifyBtn.innerHTML = `<i class="fa-solid fa-shield-check"></i> Verify Password`;
+
+      if (rows && rows.length > 0 && rows[0][passField] === oldPass) {
+        // ✅ Correct — show step 2
+        msgEl.style.display = "none";
+        cpStep1.classList.add("hidden");
+        cpStep2.classList.remove("hidden");
+      } else {
+        // ❌ Wrong
+        msgEl.style.display = "block";
+        msgEl.style.color   = "var(--danger)";
+        msgEl.textContent   = "❌ Incorrect password. Please try again.";
+      }
+    } catch (err) {
+      newVerifyBtn.disabled = false;
+      newVerifyBtn.innerHTML = `<i class="fa-solid fa-shield-check"></i> Verify Password`;
+      msgEl.style.display = "block";
+      msgEl.style.color   = "var(--danger)";
+      msgEl.textContent   = "Verification error: " + (err.message || err);
+    }
+  });
+
+  // Save new password button
+  const savePassBtn = document.getElementById("save-new-pass-btn");
+  const newSavePassBtn = savePassBtn.cloneNode(true);
+  savePassBtn.parentNode.replaceChild(newSavePassBtn, savePassBtn);
+  newSavePassBtn.addEventListener("click", async () => {
+    const newPass     = document.getElementById("acc-new-pass").value.trim();
+    const confirmPass = document.getElementById("acc-confirm-pass").value.trim();
+
+    // Validation
+    if (!newPass || !confirmPass) { showToast("Please fill in both password fields.", "error"); return; }
+    if (newPass !== confirmPass)  { showToast("Passwords do not match.", "error"); return; }
+    if (newPass.length < 6)       { showToast("Password must be at least 6 characters.", "error"); return; }
+    if (!/[A-Z]/.test(newPass))   { showToast("Password must contain at least one uppercase letter.", "error"); return; }
+    if (!/[^a-zA-Z0-9]/.test(newPass)) { showToast("Password must contain at least one special character.", "error"); return; }
+
+    let patchEp = "", passBody = {};
+    if (user.role === 1)      { patchEp = `user_details?u_id=eq.${user.id}`;              passBody = { u_password: newPass }; }
+    else if (user.role === 2) { patchEp = `restaurant?restaurantid=eq.${user.id}`;        passBody = { r_pass: newPass }; }
+    else if (user.role === 3) { patchEp = `deliverypartner_details?dp_id=eq.${user.id}`; passBody = { dp_password: newPass }; }
+
+    showLoader(true, "Updating password in Supabase...");
+    try {
+      const res = await supabaseFetch(patchEp, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(passBody)
+      });
+      showLoader(false);
+      if (res.ok || res.status === 204) {
+        showToast("✅ Password updated successfully!", "success");
+        // Reset section back to step 1
+        cpStep2.classList.add("hidden");
+        cpStep1.classList.remove("hidden");
+        cpPanel.classList.add("hidden");
+        cpChevron.style.transform = "rotate(0deg)";
+        document.getElementById("acc-old-pass").value    = "";
+        document.getElementById("acc-new-pass").value     = "";
+        document.getElementById("acc-confirm-pass").value = "";
+      } else {
+        showToast("Failed to update password.", "error");
+      }
+    } catch (err) {
+      showLoader(false);
+      showToast("Error: " + (err.message || err), "error");
+    }
+  });
 }
+
 
 // ============================================================
 //  ORDER HISTORY MODAL

@@ -848,10 +848,61 @@
             <label for="acc-phone">Phone Number</label>
             <input type="tel" id="acc-phone" required>
           </div>
-          <div class="form-group">
+          <div class="form-group" id="acc-address-group">
             <label for="acc-address">Delivery Address</label>
-            <textarea id="acc-address" rows="3" required></textarea>
+            <textarea id="acc-address" rows="3"></textarea>
           </div>
+
+          <!-- Change Password Section -->
+          <div class="change-password-section">
+            <div class="change-password-header" id="change-password-toggle">
+              <i class="fa-solid fa-lock"></i>
+              <span>Change Password</span>
+              <i class="fa-solid fa-chevron-down" id="change-password-chevron" style="margin-left:auto; font-size:11px; transition: transform 0.3s;"></i>
+            </div>
+
+            <div id="change-password-panel" class="hidden">
+              <!-- Step 1: Verify old password -->
+              <div id="cp-step-1">
+                <div class="form-group" style="margin-top:14px; margin-bottom:10px;">
+                  <label for="acc-old-pass">Current Password</label>
+                  <div class="input-wrapper">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" id="acc-old-pass" placeholder="Enter your current password">
+                  </div>
+                </div>
+                <button type="button" id="verify-old-pass-btn" class="btn btn-secondary btn-block" style="font-size:13px;">
+                  <i class="fa-solid fa-shield-check"></i> Verify Password
+                </button>
+                <p id="cp-verify-msg" style="font-size:11px; margin-top:8px; display:none;"></p>
+              </div>
+
+              <!-- Step 2: Set new password (shown after verification) -->
+              <div id="cp-step-2" class="hidden">
+                <div class="cp-verified-badge">
+                  <i class="fa-solid fa-circle-check"></i> Identity Verified — Set your new password
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                  <label for="acc-new-pass">New Password</label>
+                  <div class="input-wrapper">
+                    <i class="fa-solid fa-key"></i>
+                    <input type="password" id="acc-new-pass" placeholder="Min 6 chars, 1 Upper, 1 Special">
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                  <label for="acc-confirm-pass">Confirm New Password</label>
+                  <div class="input-wrapper">
+                    <i class="fa-solid fa-key"></i>
+                    <input type="password" id="acc-confirm-pass" placeholder="Re-enter new password">
+                  </div>
+                </div>
+                <button type="button" id="save-new-pass-btn" class="btn btn-primary btn-block" style="font-size:13px;">
+                  <i class="fa-solid fa-floppy-disk"></i> Update Password
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
         <div class="modal-footer">
           <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
@@ -899,8 +950,11 @@
             <input type="text" id="menu-item-image" placeholder="e.g. https://images.unsplash.com/...">
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary btn-block">Save Item</button>
+        <div class="modal-footer" style="display: flex; gap: 12px;">
+          <button type="submit" class="btn btn-primary" style="flex:1;">Save Item</button>
+          <button type="button" id="delete-menu-item-btn" class="btn btn-danger hidden" style="flex:1;">
+            <i class="fa-solid fa-trash"></i> Delete Item
+          </button>
         </div>
       </form>
     </div>
